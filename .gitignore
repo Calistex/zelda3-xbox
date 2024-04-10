@@ -39,3 +39,7 @@ __pycache__
 /requirements.txt
 /run_with_tcc.bat
 /.github
+*.d
+*.obj
+platform/xbox/zelda3.iso
+platform/xbox/main.exe
