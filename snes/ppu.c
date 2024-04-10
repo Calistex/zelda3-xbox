@@ -8,6 +8,8 @@
 #include "ppu.h"
 #include "../types.h"
 
+#define _countof(array) (sizeof(array) / sizeof(array[0]))
+
 static const uint8 kSpriteSizes[8][2] = {
   {8, 16}, {8, 32}, {8, 64}, {16, 32},
   {16, 64}, {32, 64}, {16, 32}, {16, 32}
@@ -122,10 +124,14 @@ void ppu_saveload(Ppu *ppu, SaveLoadFunc *func, void *ctx) {
   func(ctx, tmp, 123);
 }
 
-bool PpuBeginDrawing(Ppu *ppu, uint8_t *pixels, size_t pitch, uint32_t render_flags) {
+int PpuGetCurrentRenderScale(Ppu *ppu, uint32_t render_flags) {
+  bool hq = ppu->mode == 7 && !ppu->forcedBlank &&
+    (render_flags & (kPpuRenderFlags_4x4Mode7 | kPpuRenderFlags_NewRenderer)) == (kPpuRenderFlags_4x4Mode7 | kPpuRenderFlags_NewRenderer);
+  return hq ? 4 : 1;
+}
+
+void PpuBeginDrawing(Ppu *ppu, uint8_t *pixels, size_t pitch, uint32_t render_flags) {
   ppu->renderFlags = render_flags;
-  bool hq = ppu->mode == 7 && !ppu->forcedBlank && 
-      (ppu->renderFlags & (kPpuRenderFlags_4x4Mode7 | kPpuRenderFlags_NewRenderer)) == (kPpuRenderFlags_4x4Mode7 | kPpuRenderFlags_NewRenderer);
   ppu->renderPitch = (uint)pitch;
   ppu->renderBuffer = pixels;
 
@@ -140,14 +146,13 @@ bool PpuBeginDrawing(Ppu *ppu, uint8_t *pixels, size_t pitch, uint32_t render_fl
     memset(&ppu->brightnessMult[32], ppu->brightnessMult[31], 31);
   }
 
-  if (hq) {
+  if (PpuGetCurrentRenderScale(ppu, ppu->renderFlags) == 4) {
     for (int i = 0; i < 256; i++) {
       uint32 color = ppu->cgram[i];
       ppu->colorMapRgb[i] = ppu->brightnessMult[color & 0x1f] << 16 | ppu->brightnessMult[(color >> 5) & 0x1f] << 8 | ppu->brightnessMult[(color >> 10) & 0x1f];
     }
   }
   
-  return hq;
 }
 
 static inline void ClearBackdrop(PpuPixelPrioBufs *buf) {
@@ -882,9 +887,9 @@ static NOINLINE void PpuDrawWholeLine(Ppu *ppu, uint y) {
   uint32 cw_clip_math = ((cwin.bits & kCwBitsMod[ppu->clipMode]) ^ kCwBitsMod[ppu->clipMode + 4]) |
                         ((cwin.bits & kCwBitsMod[ppu->preventMathMode]) ^ kCwBitsMod[ppu->preventMathMode + 4]) << 8;
 
-  uint32 *dst = (uint32*)&ppu->renderBuffer[(y - 1) * 2 * ppu->renderPitch], *dst_org = dst;
+  uint32 *dst = (uint32*)&ppu->renderBuffer[(y - 1) * ppu->renderPitch], *dst_org = dst;
   
-  dst += 2 * (ppu->extraLeftRight - ppu->extraLeftCur);
+  dst += (ppu->extraLeftRight - ppu->extraLeftCur);
 
   uint32 windex = 0;
   do {
@@ -898,10 +903,10 @@ static NOINLINE void PpuDrawWholeLine(Ppu *ppu, uint y) {
       uint32 i = left;
       do {
         uint32 color = ppu->cgram[ppu->bgBuffers[0].data[i] & 0xff];
-        dst[1] = dst[0] = ppu->brightnessMult[color & clip_color_mask] << 16 |
+        dst[0] = ppu->brightnessMult[color & clip_color_mask] << 16 |
                           ppu->brightnessMult[(color >> 5) & clip_color_mask] << 8 |
                           ppu->brightnessMult[(color >> 10) & clip_color_mask];
-      } while (dst += 2, ++i < right);
+      } while (dst++, ++i < right);
     } else {
       uint8 *half_color_map = ppu->halfColor ? ppu->brightnessMultHalf : ppu->brightnessMult;
       // Store this in locals
@@ -935,20 +940,17 @@ static NOINLINE void PpuDrawWholeLine(Ppu *ppu, uint y) {
             b += b2;
           }
         }
-        dst[0] = dst[1] = color_map[b] | color_map[g] << 8 | color_map[r] << 16;
-      } while (dst += 2, ++i < right);
+        dst[0] = color_map[b] | color_map[g] << 8 | color_map[r] << 16;
+      } while (dst++, ++i < right);
     }
   } while (cw_clip_math >>= 1, ++windex < cwin.nr);
 
   // Clear out stuff on the sides.
   if (ppu->extraLeftRight - ppu->extraLeftCur != 0)
-    memset(dst_org, 0, 2 * sizeof(uint32) * (ppu->extraLeftRight - ppu->extraLeftCur));
+    memset(dst_org, 0, sizeof(uint32) * (ppu->extraLeftRight - ppu->extraLeftCur));
   if (ppu->extraLeftRight - ppu->extraRightCur != 0)
-    memset(dst_org + 2 * (256 + ppu->extraLeftRight * 2 - (ppu->extraLeftRight - ppu->extraRightCur)), 0,
-        2 * sizeof(uint32) * (ppu->extraLeftRight - ppu->extraRightCur));
-
-  // Duplicate one line
-  memcpy((uint8*)dst_org + ppu->renderPitch, dst_org, (ppu->extraLeftRight * 2 + 256) * 2 * sizeof(uint32));
+    memset(dst_org + (256 + ppu->extraLeftRight * 2 - (ppu->extraLeftRight - ppu->extraRightCur)), 0,
+        sizeof(uint32) * (ppu->extraLeftRight - ppu->extraRightCur));
 }
 
 static inline void ppu_handlePixel(Ppu* ppu, int x, int y) {
@@ -1004,15 +1006,11 @@ static inline void ppu_handlePixel(Ppu* ppu, int x, int y) {
     }
   }
   int row = y - 1;
-  uint8 *pixelBuffer = (uint8*) &ppu->renderBuffer[row * 2 * ppu->renderPitch + (x + ppu->extraLeftRight) * 8];
-  pixelBuffer[0] = ((b2 << 3) | (b2 >> 2)) * ppu->brightness / 15;
-  pixelBuffer[1] = ((g2 << 3) | (g2 >> 2)) * ppu->brightness / 15;
-  pixelBuffer[2] = ((r2 << 3) | (r2 >> 2)) * ppu->brightness / 15;
+  uint8 *pixelBuffer = (uint8*) &ppu->renderBuffer[row * ppu->renderPitch + (x + ppu->extraLeftRight) * 4];
+  pixelBuffer[0] = ((b << 3) | (b >> 2)) * ppu->brightness / 15;
+  pixelBuffer[1] = ((g << 3) | (g >> 2)) * ppu->brightness / 15;
+  pixelBuffer[2] = ((r << 3) | (r >> 2)) * ppu->brightness / 15;
   pixelBuffer[3] = 0;
-  pixelBuffer[4] = ((b << 3) | (b >> 2)) * ppu->brightness / 15;
-  pixelBuffer[5] = ((g << 3) | (g >> 2)) * ppu->brightness / 15;
-  pixelBuffer[6] = ((r << 3) | (r >> 2)) * ppu->brightness / 15;
-  pixelBuffer[7] = 0;
 }
 
 static const int bitDepthsPerMode[10][4] = {
@@ -1316,7 +1314,7 @@ static bool ppu_evaluateSprites(Ppu* ppu, int line) {
   return (tilesLeft != tilesLeftOrg);
 }
 
-inline uint8_t ppu_read(Ppu* ppu, uint8_t adr) {
+uint8_t ppu_read(Ppu* ppu, uint8_t adr) {
   switch (adr) {
   case 0x34:
   case 0x35:
@@ -1328,7 +1326,7 @@ inline uint8_t ppu_read(Ppu* ppu, uint8_t adr) {
   return 0xff;
 }
 
-inline void ppu_write(Ppu* ppu, uint8_t adr, uint8_t val) {
+void ppu_write(Ppu* ppu, uint8_t adr, uint8_t val) {
   switch(adr) {
     case 0x00: {  // INIDISP
       ppu->brightness = val & 0xf;

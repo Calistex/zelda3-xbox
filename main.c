@@ -4,13 +4,17 @@
 #include <stdint.h>
 #include <stdbool.h>
 #include <SDL.h>
-#ifdef _WIN32
-#include "platform/win32/volume_control.h"
-#include <direct.h>
-#else
-#include <sys/stat.h>
-#include <sys/types.h>
-#include <unistd.h>
+
+#ifdef __XBOX__
+#include <hal/debug.h>
+#include <hal/video.h>
+#include <windows.h>
+#include <stdbool.h>
+#include <hal/xbox.h>
+#include <nxdk/mount.h>
+
+static int SCREEN_WIDTH;
+static int SCREEN_HEIGHT;
 #endif
 
 #ifdef __vita__
@@ -68,7 +72,6 @@ static void LoadAssets();
 
 enum {
   kDefaultFullscreen = 0,
-  kDefaultWindowScale = 2,
   kMaxWindowScale = 10,
   kDefaultFreq = 44100,
   kDefaultChannels = 2,
@@ -121,14 +124,14 @@ void ChangeWindowScale(int scale_step) {
       bt = 31;
     }
     // Allow a scale level slightly above the max that fits on screen
-    int mw = (bounds.w - bl - br + (g_snes_width / kDefaultWindowScale) / 4) / (g_snes_width / kDefaultWindowScale);
-    int mh = (bounds.h - bt - bb + (g_snes_height / kDefaultWindowScale) / 4) / (g_snes_height / kDefaultWindowScale);
+    int mw = (bounds.w - bl - br + g_snes_width / 4) / g_snes_width;
+    int mh = (bounds.h - bt - bb + g_snes_height / 4) / g_snes_height;
     max_scale = IntMin(mw, mh);
   }
   int new_scale = IntMax(IntMin(g_current_window_scale + scale_step, max_scale), 1);
   g_current_window_scale = new_scale;
-  int w = new_scale * (g_snes_width / kDefaultWindowScale);
-  int h = new_scale * (g_snes_height / kDefaultWindowScale);
+  int w = new_scale * g_snes_width;
+  int h = new_scale * g_snes_height;
 
   //SDL_RenderSetLogicalSize(g_renderer, w, h);
   SDL_SetWindowSize(g_window, w, h);
@@ -150,13 +153,12 @@ static SDL_HitTestResult HitTestCallback(SDL_Window *win, const SDL_Point *area,
          (SDL_GetModState() & KMOD_CTRL) != 0 ? SDL_HITTEST_DRAGGABLE : SDL_HITTEST_NORMAL;
 }
 
-static bool RenderScreenWithPerf(uint8 *pixel_buffer, size_t pitch, uint32 render_flags) {
-  bool rv;
+static void RenderScreenWithPerf(uint8 *pixel_buffer, size_t pitch, uint32 render_flags) {
   if (g_display_perf || g_config.display_perf_title) {
     static float history[64], average;
     static int history_pos;
     uint64 before = SDL_GetPerformanceCounter();
-    rv = ZeldaDrawPpuFrame(pixel_buffer, pitch, render_flags);
+    ZeldaDrawPpuFrame(pixel_buffer, pitch, render_flags);
     uint64 after = SDL_GetPerformanceCounter();
     float v = (double)SDL_GetPerformanceFrequency() / (after - before);
     average += v - history[history_pos];
@@ -164,16 +166,15 @@ static bool RenderScreenWithPerf(uint8 *pixel_buffer, size_t pitch, uint32 rende
     history_pos = (history_pos + 1) & 63;
     g_curr_fps = average * (1.0f / 64);
   } else {
-    rv = ZeldaDrawPpuFrame(pixel_buffer, pitch, render_flags);
+    ZeldaDrawPpuFrame(pixel_buffer, pitch, render_flags);
   }
-  return rv;
 }
 
 // Go some steps up and find zelda3.ini
 static void SwitchDirectory() {
   char buf[4096];
-  if (!getcwd(buf, sizeof(buf) - 32))
-    return;
+  //if (!getcwd(buf, sizeof(buf) - 32))
+  //  return;
   size_t pos = strlen(buf);
 
   for (int step = 0; pos != 0 && step < 3; step++) {
@@ -184,8 +185,8 @@ static void SwitchDirectory() {
       buf[pos] = 0;
       if (step != 0) {
         printf("Found zelda3.ini in %s\n", buf);
-        int err = chdir(buf);
-        (void)err;
+        //int err = chdir(buf);
+        //(void)err;
       }
       return;
     }
@@ -234,6 +235,41 @@ int main(int argc, char** argv) {
   scePowerSetGpuClockFrequency(222);
   scePowerSetGpuXbarClockFrequency(166);
 #endif
+#if defined(__XBOX__)
+    Sleep(1000);
+    // Based on LithiumX solution to detect Xbox resolution: https://github.com/Ryzee119/LithiumX/blob/f4471d287d44abc84803d3b901bd4aa7ed459689/src/platform/xbox/platform.c#L99
+    // First try 720p. This is the preferred resolution
+    SCREEN_WIDTH = 1280;
+    SCREEN_HEIGHT = 720;
+    if (XVideoSetMode(SCREEN_WIDTH, SCREEN_HEIGHT, 32, REFRESH_DEFAULT) == false)
+    {
+        // Fall back to 640*480
+        SCREEN_WIDTH = 640;
+        SCREEN_HEIGHT = 480;
+        if (XVideoSetMode(SCREEN_WIDTH, SCREEN_HEIGHT, 32, REFRESH_DEFAULT) == false)
+        {
+            // Try whatever else the xbox is happy with
+            VIDEO_MODE xmode;
+            void *p = NULL;
+            while (XVideoListModes(&xmode, 0, 0, &p))
+            {
+                if (xmode.width == 1080)
+                    continue;
+                if (xmode.width == 720)
+                    continue; // 720x480 doesnt work on pbkit for some reason
+                XVideoSetMode(xmode.width, xmode.height, xmode.bpp, xmode.refresh);
+                ;
+                break;
+            }
+
+            SCREEN_WIDTH = xmode.width;
+            SCREEN_HEIGHT = xmode.height;
+        }
+    }
+    
+
+#endif
+
   SwitchDirectory();
   ParseConfigFile();
   AfterConfigParse();
@@ -242,8 +278,8 @@ int main(int argc, char** argv) {
 
   ZeldaInitialize();
   g_zenv.ppu->extraLeftRight = UintMin(g_config.extended_aspect_ratio, kPpuExtraLeftRight);
-  g_snes_width = 2 * (g_config.extended_aspect_ratio * 2 + 256);
-  g_snes_height = (g_config.extend_y ? 240 : 224) * 2;
+  g_snes_width = (g_config.extended_aspect_ratio * 2 + 256);
+  g_snes_height = (g_config.extend_y ? 240 : 224);
 
 
   // Delay actually setting those features in ram until any snapshots finish playing.
@@ -275,6 +311,7 @@ int main(int argc, char** argv) {
   if (g_config.audio_samples <= 0 || ((g_config.audio_samples & (g_config.audio_samples - 1)) != 0))
     g_config.audio_samples = kDefaultSamples;
 
+
   // set up SDL
 #ifdef __vita__
   vita2d_init();
@@ -289,16 +326,22 @@ int main(int argc, char** argv) {
     printf("Failed to init SDL: %s\n", SDL_GetError());
     return 1;
   }
+  
+  SDL_GameControllerEventState(SDL_ENABLE);
+  SDL_GameControllerOpen(0);
 
   bool custom_size  = g_config.window_width != 0 && g_config.window_height != 0;
-  int window_width  = custom_size ? g_config.window_width  : g_current_window_scale * (g_snes_width / kDefaultWindowScale);
-  int window_height = custom_size ? g_config.window_height : g_current_window_scale * (g_snes_height / kDefaultWindowScale);
+  int window_width  = custom_size ? g_config.window_width  : g_current_window_scale * g_snes_width;
+  int window_height = custom_size ? g_config.window_height : g_current_window_scale * g_snes_height;
 
   SDL_Window* window = SDL_CreateWindow(kWindowTitle, SDL_WINDOWPOS_UNDEFINED, SDL_WINDOWPOS_UNDEFINED, window_width, window_height, g_win_flags);
   if(window == NULL) {
     printf("Failed to create window: %s\n", SDL_GetError());
     return 1;
   }
+  
+  
+  
   g_window = window;
   SDL_SetWindowHitTest(window, HitTestCallback, NULL);
 #ifndef __vita__
@@ -318,12 +361,12 @@ int main(int argc, char** argv) {
   g_renderer = renderer;
   if (!g_config.ignore_aspect_ratio)
     SDL_RenderSetLogicalSize(renderer, g_snes_width, g_snes_height);
-  SDL_Texture* texture = SDL_CreateTexture(renderer, SDL_PIXELFORMAT_ARGB8888, SDL_TEXTUREACCESS_STREAMING, g_snes_width * 2, g_snes_height * 2);
+  SDL_Texture* texture = SDL_CreateTexture(renderer, SDL_PIXELFORMAT_ARGB8888, SDL_TEXTUREACCESS_STREAMING, g_snes_width * 4, g_snes_height * 4);
   if(texture == NULL) {
     printf("Failed to create texture: %s\n", SDL_GetError());
     return 1;
   }
-  SDL_SetHint(SDL_HINT_RENDER_SCALE_QUALITY, "best");
+  SDL_SetHint(SDL_HINT_RENDER_SCALE_QUALITY, 0);
 #else
   SDL_Renderer *renderer;
   SDL_Texture *texture;
@@ -348,15 +391,10 @@ int main(int argc, char** argv) {
     g_frames_per_block = (534 * have.freq) / 32000;
     g_audiobuffer = malloc(g_frames_per_block * have.channels * sizeof(int16));
   }
-#ifndef __vita__
-  if (argc >= 2 && !g_run_without_emu)
-    LoadRom(argv[1]);
-#endif
-#if defined(_WIN32)
-  _mkdir("saves");
-#else
-  mkdir("saves", 0755);
-#endif
+  
+  nxMountDrive('E', "\\Device\\Harddisk0\\Partition1\\");
+  CreateDirectoryA("E:\\UDATA", NULL);
+  CreateDirectoryA("E:\\UDATA\\Zelda3", NULL);
 
   ZeldaReadSram();
 
@@ -530,41 +568,38 @@ static void RenderNumber(uint8 *dst, size_t pitch, int n, bool big) {
 
 static void RenderScreen(SDL_Window *window, SDL_Renderer *renderer, SDL_Texture *texture, bool fullscreen) {
 #ifndef __vita__
-  uint8* pixels = NULL;
+  uint8 *pixels = 0;
   int pitch = 0;
-  uint64 t0 = SDL_GetPerformanceCounter();
-  if(SDL_LockTexture(texture, NULL, (void**)&pixels, &pitch) != 0) {
+  int render_scale = PpuGetCurrentRenderScale(g_zenv.ppu, g_ppu_render_flags);
+  SDL_Rect src_rect = { 0, 0, g_snes_width * render_scale, g_snes_height * render_scale};
+  
+  //uint64 t0 = SDL_GetPerformanceCounter();
+  if(SDL_LockTexture(texture, &src_rect, (void**)&pixels, &pitch) != 0) {
     printf("Failed to lock texture: %s\n", SDL_GetError());
     return;
   }
-  uint64 t1 = SDL_GetPerformanceCounter();
-  bool hq = RenderScreenWithPerf(pixels, pitch, g_ppu_render_flags);
+  //uint64 t1 = SDL_GetPerformanceCounter();
+  RenderScreenWithPerf(pixels, pitch, g_ppu_render_flags);
   if (g_display_perf) {
-    RenderNumber(pixels + (pitch * 2 << hq), pitch, g_curr_fps, hq);
-  }
-  if (g_config.display_perf_title) {
-    char title[60];
-    snprintf(title, sizeof(title), "%s | FPS: %d", kWindowTitle, g_curr_fps);
-    SDL_SetWindowTitle(window, title);
+    RenderNumber(pixels + pitch * render_scale, pitch, g_curr_fps, render_scale == 4);
   }
 
-  uint64 t2 = SDL_GetPerformanceCounter();
+  //uint64 t2 = SDL_GetPerformanceCounter();
   SDL_UnlockTexture(texture);
-  uint64 t3 = SDL_GetPerformanceCounter();
+  //uint64 t3 = SDL_GetPerformanceCounter();
   SDL_RenderClear(renderer);
-  uint64 t4 = SDL_GetPerformanceCounter();
-  SDL_Rect src_rect = { 0, 0, g_snes_width, g_snes_height };
-  SDL_RenderCopy(renderer, texture, hq ? NULL : &src_rect, NULL);
-  uint64 t5 = SDL_GetPerformanceCounter();
+  //uint64 t4 = SDL_GetPerformanceCounter();
+  SDL_RenderCopy(renderer, texture, &src_rect, NULL);
+  //uint64 t5 = SDL_GetPerformanceCounter();
 
-  double f = 1e3 / (double)SDL_GetPerformanceFrequency();
-  if (0) printf("RenderPerf %6.2f %6.2f %6.2f %6.2f %6.2f\n",
-    (t1 - t0) * f,
-    (t2 - t1) * f,
-    (t3 - t2) * f,
-    (t4 - t3) * f,
-    (t5 - t4) * f
-  );
+  // double f = 1e3 / (double)SDL_GetPerformanceFrequency();
+  // if (0) printf("RenderPerf %6.2f %6.2f %6.2f %6.2f %6.2f\n",
+    // (t1 - t0) * f,
+    // (t2 - t1) * f,
+    // (t3 - t2) * f,
+    // (t4 - t3) * f,
+    // (t5 - t4) * f
+  // );
 #else
   uint8* pixels = vita2d_texture_get_datap(tex_buffer);
   int pitch = vita2d_texture_get_stride(tex_buffer);
@@ -650,14 +685,6 @@ static void HandleCommand_Locked(uint32 j, bool pressed) {
       g_paused = !g_paused;
       // SDL_RenderPresent may not be called more than once per frame.
       // Seems to work on Windows still. Temporary measure until it's fixed.
-#ifdef _WIN32
-      if (g_paused) {
-        SDL_SetRenderDrawBlendMode(g_renderer, SDL_BLENDMODE_BLEND);
-        SDL_SetRenderDrawColor(g_renderer, 0, 0, 0, 159);
-        SDL_RenderFillRect(g_renderer, NULL);
-        SDL_RenderPresent(g_renderer);
-      }
-#endif
       break;
     case kKeys_ReplayTurbo: g_replay_turbo = !g_replay_turbo; break;
     case kKeys_WindowBigger: ChangeWindowScale(1); break;
@@ -703,15 +730,9 @@ static void HandleGamepadInput(int button, bool pressed) {
 }
 
 static void HandleVolumeAdjustment(int volume_adjustment) {
-#if SYSTEM_VOLUME_MIXER_AVAILABLE
-  int current_volume = GetApplicationVolume();
-  int new_volume = IntMin(IntMax(0, current_volume + volume_adjustment * 5), 100);
-  SetApplicationVolume(new_volume);
-  printf("[System Volume]=%i\n", new_volume);
-#else
   g_sdl_audio_mixer_volume = IntMin(IntMax(0, g_sdl_audio_mixer_volume + volume_adjustment * (SDL_MIX_MAXVOLUME >> 4)), SDL_MIX_MAXVOLUME);
   printf("[SDL mixer volume]=%i\n", g_sdl_audio_mixer_volume);
-#endif
+
 }
 
 // Approximates atan2(y, x) normalized to the [0,4) range
@@ -770,7 +791,7 @@ static void HandleGamepadAxisInput(int gamepad_id, int axis, int value) {
 
 static bool LoadRom(const char *filename) {
   size_t length = 0;
-  uint8 *file = ReadFile(filename, &length);
+  uint8 *file = ReadFilee(filename, &length);
   if(!file) Die("Failed to read file");
   bool result = EmuInitialize(file, length);
   free(file);
@@ -802,7 +823,7 @@ static void LoadLinkGraphics() {
   if (g_config.link_graphics) {
     fprintf(stderr, "Loading Link Graphics: %s\n", g_config.link_graphics);
     size_t length = 0;
-    uint8 *file = ReadFile(g_config.link_graphics, &length);
+    uint8 *file = ReadFilee(g_config.link_graphics, &length);
     if (file == NULL || !ParseLinkGraphics(file, length))
       Die("Unable to load file");
     free(file);
@@ -815,9 +836,9 @@ uint32 g_asset_sizes[kNumberOfAssets];
 
 static void LoadAssets() {
   size_t length = 0;
-  uint8 *data = ReadFile("tables/zelda3_assets.dat", &length);
+  uint8 *data = ReadFilee("D:\\tables\\zelda3_assets.dat", &length);
   if (!data)
-    data = ReadFile("zelda3_assets.dat", &length);
+    data = ReadFilee("D:\\zelda3_assets.dat", &length);
   if (!data) Die("Failed to read zelda3_assets.dat");
 
   static const char kAssetsSig[] = { kAssets_Sig };

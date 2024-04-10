@@ -5,6 +5,8 @@
 #include <SDL.h>
 #include "features.h"
 
+#define _countof(array) (sizeof(array) / sizeof(array[0]))
+
 
 enum {
   kKeyMod_ScanCode = 0x200,
@@ -352,7 +354,7 @@ static bool HandleIniConfig(int section, const char *key, char *value) {
 }
 
 
-uint8 *ReadFile(const char *name, size_t *length) {
+uint8 *ReadFilee(const char *name, size_t *length) {
   FILE *f = fopen(name, "rb");
   if (f == NULL)
     return NULL;
@@ -371,9 +373,9 @@ uint8 *ReadFile(const char *name, size_t *length) {
 }
 
 void ParseConfigFile() {
-  uint8 *file = ReadFile("zelda3.user.ini", NULL);
+  uint8 *file = ReadFilee("D:\\zelda3.user.ini", NULL);
   if (!file) {
-    file = ReadFile("zelda3.ini", NULL);
+    file = ReadFilee("D:\\zelda3.ini", NULL);
     if (!file)
       return;
   }

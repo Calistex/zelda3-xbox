@@ -1,4 +1,48 @@
 # Zelda3
+
+A reimplementation of Zelda 3 for the Original Xbox.
+Being my first Xbox port, things could, and probably will, go wrong.
+It is based on an old port that lacks some of the most recent changes made in the original repository.
+
+The savegame can be found inside the `E:\UDATA\Zelda3\` folder.
+
+Known problems:
+
+* Sometimes audio doesn't start;
+* Missing bugfixes from the original repository;
+* Changing ExtendedAspectRatio to 4:3 in the zelda3.ini file makes the screen uncentered.
+
+## Building
+
+This project is made with [Nxdk](https://github.com/XboxDev/nxdk), so make sure you set it up first.
+Clone this repository:
+
+```sh
+git clone https://github.com/Calistex/zelda3-xbox.git
+```
+
+Remember to change the Nxdk directory (`NXDK_DIR`) inside the `platform/xbox/Makefile` according to your installation.
+To build it:
+
+```sh
+cd platform/xbox
+make 
+```
+
+This will generate a `bin` folder with the default.exe and the files needed. After having extracted and compiled the resources from the original rom and generated the `zelda3_assets.dat` file using the instructions in the original readme below, put it inside the `bin/tables` folder.
+
+Rename the `bin` folder to anything you like and put it on your Xbox.
+
+I've built the project using a [modified version of SDL2](https://github.com/fgsfdsfgs/nxdk-sdl) by fgsfds that enables hardware acceleration, but it should be fine even with the version bundled with Nxdk.
+
+## Credits
+
+* Rinnegatamante the his original Ps Vita port, which this port is based on;
+* Daniel Pinheiro for the Celeste Classic port, which Makefile I used for this one;
+* fgsfds for the modified SDL2 version and for all the help given to me on the XboxDev Discord server.
+
+# Original Readme
+
 A reimplementation of Zelda 3.
 
 Our discord server is: https://discord.gg/AJJbJAzNNJ

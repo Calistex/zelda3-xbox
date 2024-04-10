@@ -7,6 +7,8 @@
 *.aps
 /obj/
 /bin/
+/platform/xbox/bin/default.xbe
+/platform/xbox/bin/tables/zelda_assets.dat
 /tables/overworld/*.yaml
 /tables/dungeon/*.yaml
 /tables/img/
@@ -28,3 +30,12 @@ __pycache__
 /third_party/tcc/
 /third_party/SDL2-2.24.0/
 /SDL2.dll
+/platform/xbox/bin/tables/zelda3_assets.dat
+/platform/xbox/.gdbinit
+/platform/xbox/gdb.txt
+/platform/xbox/main.pdb
+/platform/win32
+/platform/switch
+/requirements.txt
+/run_with_tcc.bat
+/.github

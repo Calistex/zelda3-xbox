@@ -64,7 +64,7 @@ typedef struct Config {
 
 extern Config g_config;
 
-uint8 *ReadFile(const char *name, size_t *length);
+uint8 *ReadFilee(const char *name, size_t *length);
 void ParseConfigFile();
 void AfterConfigParse();
 

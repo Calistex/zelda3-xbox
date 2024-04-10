@@ -9,6 +9,8 @@
 
 #include "spc_player.h"
 
+#define _countof(array) (sizeof(array) / sizeof(array[0]))
+
 typedef struct MemMap {
   uint16 off, org_off;
 } MemMap;

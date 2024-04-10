@@ -9,6 +9,8 @@
 #include "snes/dma.h"
 #include "spc_player.h"
 
+#include <stdio.h>
+
 ZeldaEnv g_zenv;
 uint8 g_ram[131072];
 
@@ -97,7 +99,7 @@ void ZeldaResetApuQueue() {
 }
 
 
-inline uint8_t zelda_read_apui00() {
+uint8_t zelda_read_apui00() {
   // This needs to be here because the ancilla code reads
   // from the apu and we don't want to make the core code
   // dependent on the apu timings, so relocated this value
@@ -105,16 +107,16 @@ inline uint8_t zelda_read_apui00() {
   return g_ram[kRam_APUI00];
 }
 
-inline uint8_t zelda_apu_read(uint32_t adr) {
+uint8_t zelda_apu_read(uint32_t adr) {
   return g_zenv.player->port_to_snes[adr & 0x3];
 }
 
-inline void zelda_ppu_write(uint32_t adr, uint8_t val) {
+void zelda_ppu_write(uint32_t adr, uint8_t val) {
   assert(adr >= INIDISP && adr <= STAT78);
   ppu_write(g_zenv.ppu, (uint8)adr, val);
 }
 
-inline void zelda_ppu_write_word(uint32_t adr, uint16_t val) {
+void zelda_ppu_write_word(uint32_t adr, uint16_t val) {
   zelda_ppu_write(adr, val);
   zelda_ppu_write(adr + 1, val >> 8);
 }
@@ -215,10 +217,10 @@ static void ConfigurePpuSideSpace() {
   PpuSetExtraSideSpace(g_zenv.ppu, extra_left, extra_right, extra_bottom);
 }
 
-bool ZeldaDrawPpuFrame(uint8 *pixel_buffer, size_t pitch, uint32 render_flags) {
+void ZeldaDrawPpuFrame(uint8 *pixel_buffer, size_t pitch, uint32 render_flags) {
   SimpleHdma hdma_chans[2];
 
-  bool rv = PpuBeginDrawing(g_zenv.ppu, pixel_buffer, pitch, render_flags);
+  PpuBeginDrawing(g_zenv.ppu, pixel_buffer, pitch, render_flags);
 
   dma_startDma(g_zenv.dma, HDMAEN_copy, true);
 
@@ -258,7 +260,6 @@ bool ZeldaDrawPpuFrame(uint8 *pixel_buffer, size_t pitch, uint32 render_flags) {
     SimpleHdma_DoLine(&hdma_chans[1]);
   }
 
-  return rv;
 }
 
 void HdmaSetup(uint32 addr6, uint32 addr7, uint8 transfer_unit, uint8 reg6, uint8 reg7, uint8 indirect_bank) {
@@ -1066,7 +1067,7 @@ void ZeldaRenderAudio(int16 *audio_buffer, int samples, int channels) {
 
 
 void ZeldaReadSram() {
-  FILE *f = fopen("saves/sram.dat", "rb");
+  FILE *f = fopen("E:\\UDATA\\Zelda3\\sram.dat", "rb");
   if (f) {
     if (fread(g_zenv.sram, 1, 8192, f) != 8192)
       fprintf(stderr, "Error reading saves/sram.dat\n");
@@ -1076,8 +1077,8 @@ void ZeldaReadSram() {
 }
 
 void ZeldaWriteSram() {
-  rename("saves/sram.dat", "saves/sram.bak");
-  FILE *f = fopen("saves/sram.dat", "wb");
+  remove("E:\\UDATA\\Zelda3\\sram.dat");
+  FILE *f = fopen("E:\\UDATA\\Zelda3\\sram.dat", "wb");
   if (f) {
     fwrite(g_zenv.sram, 1, 8192, f);
     fclose(f);

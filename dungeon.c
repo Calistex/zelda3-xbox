@@ -16,6 +16,8 @@
 #include "messaging.h"
 #include "assets.h"
 
+#define _countof(array) (sizeof(array) / sizeof(array[0]))
+
 // todo: move to config
 static const uint16 kBossRooms[] = {
   200, 51, 7,

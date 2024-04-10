@@ -11,6 +11,8 @@
 #include "snes/cart.h"
 #include "snes/tracing.h"
 
+#define _countof(array) (sizeof(array) / sizeof(array[0]))
+
 Snes *g_snes;
 Cpu *g_cpu;
 uint8 g_emulated_ram[0x20000];

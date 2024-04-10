@@ -12,6 +12,8 @@
 #include "snes/snes_regs.h"
 #include "assets.h"
 
+#define _countof(array) (sizeof(array) / sizeof(array[0]))
+
 const uint16 kOverworld_OffsetBaseX[64] = {
   0,     0, 0x400, 0x600, 0x600, 0xa00, 0xa00, 0xe00,
   0,     0, 0x400, 0x600, 0x600, 0xa00, 0xa00, 0xe00,
