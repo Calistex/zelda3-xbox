@@ -1,4 +1,4 @@
-# Zelda3
+# Zelda3 - Xbox
 
 A reimplementation of Zelda 3 for the Original Xbox.
 Being my first Xbox port, things could, and probably will, go wrong.
@@ -9,7 +9,7 @@ The savegame can be found inside the `E:\UDATA\Zelda3\` folder.
 Known problems:
 
 * Sometimes audio doesn't start;
-* Missing bugfixes from the original repository;
+* Missing some features from the original repository;
 * Changing ExtendedAspectRatio to 4:3 in the zelda3.ini file makes the screen uncentered.
 
 ## Building
