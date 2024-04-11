@@ -40,7 +40,7 @@ I've built the project using a [modified version of SDL2](https://github.com/fgs
 * Rinnegatamante for the original Ps Vita port, which this port is based on;
 * Daniel Pinheiro for the [Celeste Classic port](https://github.com/danielgpinheiro/ccleste-xbox), which Makefile I used for this one;
 * fgsfds for the modified SDL2 version;
-* fgsfds and Ryzee120 for all the help they gave me on the XboxDev Discord server, which was critical to get this to work;
+* fgsfds and Ryzee119 for all the help they gave me on the XboxDev Discord server, which was critical to get this to work;
 * Haguero for testing.
 
 # Original Readme
