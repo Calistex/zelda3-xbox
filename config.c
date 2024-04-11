@@ -268,6 +268,8 @@ static bool HandleIniConfig(int section, const char *key, char *value) {
     } else if (StringEqualsNoCase(key, "LinkGraphics")) {
       g_config.link_graphics = value;
       return true;
+    } else if (StringEqualsNoCase(key, "DimFlashes")) {
+      return ParseBoolBit(value, &g_config.features0, kFeatures0_DimFlashes);
     }
   } else if (section == 2) {
     if (StringEqualsNoCase(key, "EnableAudio")) {
