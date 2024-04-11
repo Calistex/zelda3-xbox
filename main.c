@@ -95,6 +95,8 @@ static int g_sdl_audio_mixer_volume = SDL_MIX_MAXVOLUME;
 
 void NORETURN Die(const char *error) {
   fprintf(stderr, "Error: %s\n", error);
+  debugPrint("Error: %s\n", error);
+  Sleep(5000);
   exit(1);
 }
 
