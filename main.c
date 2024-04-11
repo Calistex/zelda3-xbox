@@ -60,7 +60,6 @@ FILE *__wrap_fopen(char *fname, char *mode) {
 // Forwards
 static bool LoadRom(const char *filename);
 static void LoadLinkGraphics();
-static void PlayAudio(SDL_AudioDeviceID device, int channels, int16 *audioBuffer);
 static void RenderScreen(SDL_Window *window, SDL_Renderer *renderer, SDL_Texture *texture, bool fullscreen);
 static void HandleInput(int keyCode, int modCode, bool pressed);
 static void HandleCommand(uint32 j, bool pressed);
@@ -373,7 +372,7 @@ int main(int argc, char** argv) {
   SDL_Renderer *renderer;
   SDL_Texture *texture;
 #endif
-  SDL_AudioDeviceID device;
+  SDL_AudioDeviceID device = 0;
   SDL_AudioSpec want = { 0 }, have;
   g_audio_mutex = SDL_CreateMutex();
   if (!g_audio_mutex) Die("No mutex");
@@ -454,7 +453,8 @@ int main(int argc, char** argv) {
 
     if (g_paused != audiopaused) {
       audiopaused = g_paused;
-      SDL_PauseAudioDevice(device, audiopaused);
+      if (device)
+        SDL_PauseAudioDevice(device, audiopaused);
     }
 
     if (g_paused) {

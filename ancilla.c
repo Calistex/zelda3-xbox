@@ -5165,7 +5165,7 @@ void Ancilla2E_SomariaBlockFission(int k) {  // 88eb3e
   }
   Point16U pt;
   Ancilla_PrepAdjustedOamCoord(k, &pt);
-  OamEnt *oam = GetOamCurPtr(), *oam_org = oam;
+  OamEnt *oam = GetOamCurPtr();
 
   int8 z = ancilla_z[k] + (ancilla_K[k] == 3 && BYTE(link_z_coord) != 0xff ? BYTE(link_z_coord) : 0);
   int j = ancilla_item_to_link[k] * 8;
