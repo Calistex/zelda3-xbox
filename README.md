@@ -4,7 +4,7 @@ A reimplementation of Zelda 3 for the Original Xbox.
 Being my first Xbox port, things could, and probably will, go wrong.
 It is based on an old port that lacks some of the most recent changes made in the original repository.
 
-The savegame can be found inside the `E:\UDATA\Zelda3\` folder.
+The savegame can be found inside the `E:\UDATA\Zelda3\Saves` folder.
 
 Known problems:
 
@@ -41,7 +41,8 @@ I've built the project using a [modified version of SDL2](https://github.com/fgs
 * Daniel Pinheiro for the [Celeste Classic port](https://github.com/danielgpinheiro/ccleste-xbox), which Makefile I used for this one;
 * fgsfds for the modified SDL2 version;
 * fgsfds and Ryzee119 for all the help they gave me on the XboxDev Discord server, which was critical to get this to work;
-* Haguero for testing.
+* Haguero for testing;
+* Everyone on the XboxDev Discord server who showed interest and support for this project.
 
 # Original Readme
 

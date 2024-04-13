@@ -395,9 +395,37 @@ int main(int argc, char** argv) {
     g_audiobuffer = malloc(g_frames_per_block * have.channels * sizeof(int16));
   }
   
+  
+  //Code related to partition E provided by Ryzee119
   nxMountDrive('E', "\\Device\\Harddisk0\\Partition1\\");
   CreateDirectoryA("E:\\UDATA", NULL);
   CreateDirectoryA("E:\\UDATA\\Zelda3", NULL);
+  CreateDirectoryA("E:\\UDATA\\Zelda3\\Saves", NULL);
+  
+  FILE *fp = fopen("E:\\UDATA\\Zelda3\\TitleMeta.xbx", "wb");
+  if (fp)
+  {
+    fprintf(fp, "TitleName=Zelda3\r\n");
+    fclose(fp);
+  }
+  
+/*   remove("E:\\UDATA\\Zelda3\\TitleImage.xbx");
+  FILE *source = fopen("D:\\TitleImage.xbx", "r");
+  if(source){
+    FILE *target = fopen("E:\\UDATA\\Zelda3\\TitleImage.xbx", "w");
+    if(target){
+        
+      char c[4096];
+      while (!feof(source)) {
+        size_t bytes = fread(c, 1, sizeof(c), source);
+        if (bytes) {
+          fwrite(c, 1, bytes, target);
+        }
+      }
+      fclose(target);
+    }
+    fclose(source);
+  } */
 
   ZeldaReadSram();
 

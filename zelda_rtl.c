@@ -1084,7 +1084,7 @@ void ZeldaRenderAudio(int16 *audio_buffer, int samples, int channels) {
 
 
 void ZeldaReadSram() {
-  FILE *f = fopen("E:\\UDATA\\Zelda3\\sram.dat", "rb");
+  FILE *f = fopen("E:\\UDATA\\Zelda3\\Saves\\sram.dat", "rb");
   if (f) {
     if (fread(g_zenv.sram, 1, 8192, f) != 8192)
       fprintf(stderr, "Error reading saves/sram.dat\n");
@@ -1094,8 +1094,8 @@ void ZeldaReadSram() {
 }
 
 void ZeldaWriteSram() {
-  remove("E:\\UDATA\\Zelda3\\sram.dat");
-  FILE *f = fopen("E:\\UDATA\\Zelda3\\sram.dat", "wb");
+  remove("E:\\UDATA\\Zelda3\\Saves\\sram.dat");
+  FILE *f = fopen("E:\\UDATA\\Zelda3\\Saves\\sram.dat", "wb");
   if (f) {
     fwrite(g_zenv.sram, 1, 8192, f);
     fclose(f);
